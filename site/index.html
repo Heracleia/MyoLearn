@@ -1,114 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>MyoLearn</title>
-<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.3/angular.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.3.3/angular-route.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-<script src="js/Chart.js"></script>
-<link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
-<link href='http://fonts.googleapis.com/css?family=Merriweather:400,300,300italic,400italic,700,700italic,900,900italic' rel='stylesheet' type='text/css'>
-<style>
-html, body {
-	width: 100%;
-	height: 100%;
-}
-body {
-    font-family: Merriweather,'Helvetica Neue',Arial,sans-serif;
-}
-hr {
-    max-width: 50px;
-    border-color: #fff;
-    border-width: 3px;
-}
-a {
-    -webkit-transition: all .35s;
-    -moz-transition: all .35s;
-    transition: all .35s;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-family: 'Open Sans','Helvetica Neue',Arial,sans-serif;
-}
-p {
-    margin-bottom: 20px;
-    font-size: 16px;
-    line-height: 1.5;
-}
-section {
-	padding: 100px 0;
-}
-header {
-    position: relative;
-    width: 100%;
-    min-height: auto;
-    text-align: center;
-    color: #fff;
-    background-color: #2c3e50;
-    background-position: center;
-    -webkit-background-size: cover;
-    -moz-background-size: cover;
-    background-size: cover;
-    -o-background-size: cover;
-}
-header .header-content {
-    position: relative;
-    width: 100%;
-    padding: 100px 15px;
-    text-align: center;
-}
-header .header-content .header-content-inner h1 {
-    margin-top: 0;
-    margin-bottom: 0;
-    text-transform: uppercase;
-    font-weight: 700;
-}
-@media(min-width:768px) {
-    header {
-        min-height: 100%;
-    }
-    header .header-content {
-        position: absolute;
-        top: 50%;
-        padding: 0 50px;
-        -webkit-transform: translateY(-50%);
-        -ms-transform: translateY(-50%);
-        transform: translateY(-50%);
-    }
-    header .header-content .header-content-inner {
-        margin-right: auto;
-        margin-left: auto;
-        max-width: 1000px;
-    }
-}
-.section-heading {
-	margin-top: 0;
-}
-.bg-primary {
-	background-color: #2c3e50;
-	color: #fff;
-}
-.bg-secondary {
-	background-color: #3498db;
-	color: #fff;
-}
-#myostatus {
-	position: fixed;
-	top: 50px;
-	width: 100%
-}
-</style>
+	<meta charset="UTF-8">
+	<title>MyoLearn</title>	
+	<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.3/angular.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.3.3/angular-route.min.js"></script>
+	<script src="js/jquery.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="js/Chart.js"></script>
+	<link rel="stylesheet" href="css/bootstrap.min.css">				
+	<link rel="stylesheet" href="css/custom.css">
+	<link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+	<link href='http://fonts.googleapis.com/css?family=Merriweather:400,300,300italic,400italic,700,700italic,900,900italic' rel='stylesheet' type='text/css'>
 </head>
 
-<body id="page-top">
+<body id="page-top" data-spy="scroll" data-target="navbar-fixed-top">
 	<nav id="mainNav" class="navbar navbar-default navbar-fixed-top">
 		<div class="container-fluid">
 			<div class="navbar-header">
@@ -123,8 +30,8 @@ header .header-content .header-content-inner h1 {
 			</div>
 		<div class="collapse navbar-collapse" id="navbar-collapse-1">
 			<ul class="nav navbar-nav navbar-right">
-				<li><a href="#record">Record</a></li>
-				<li><a href="#train">Train</a></li>
+				<li><a class="page-scroll" href="#record">Record</a></li>
+				<li><a class="page-scroll" href="#train">Train</a></li>
 			</ul>
 		</div>
 	</nav>
@@ -137,9 +44,6 @@ header .header-content .header-content-inner h1 {
 			</div>
 		</div>
 	</header>
-	<div class="bg-secondary text-center collapse in" id="myostatus">
-		<h5>Waiting for Myo to be connected...</h5>
-	</div>
 	<section id="record">
 		<div class="container">
 			<div class="col-sm-6">
@@ -162,125 +66,11 @@ header .header-content .header-content-inner h1 {
 			<p>Page made by Dylan Ebert</p>
 		</div>
 	</section>
+	<div class="bg-secondary text-center collapse in" id="myostatus">
+		<h5>Waiting for Myo to be connected...</h5>
+	</div>
 </body>
-<script>	
-	var gyroctx = $('#gyroChart'),
-		accelctx = $('#accelChart'),
-		gyrodata = {
-			labels: Array.apply(null, Array(20)).map(String.prototype.valueOf, ""),
-			datasets: [
-				{
-					label: 'Gyroscope X',
-					backgroundColor: 'rgba(52, 152, 219,0.2)',
-					borderColor: 'rgba(41, 128, 185,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				},
-				{
-					label: 'Gyroscope Y',
-					backgroundColor: 'rgba(46, 204, 113,0.2)',
-					borderColor: 'rgba(39, 174, 96,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				},
-				{
-					label: 'Gyroscope Z',
-					backgroundColor: 'rgba(26, 188, 156,0.2)',
-					borderColor: 'rgba(22, 160, 133,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				}
-			]
-		},
-		acceldata = {
-			labels: Array.apply(null, Array(20)).map(String.prototype.valueOf, ""),
-			datasets: [
-				{
-					label: 'Acceleration X',
-					backgroundColor: 'rgba(52, 152, 219,0.2)',
-					borderColor: 'rgba(41, 128, 185,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				},
-				{
-					label: 'Acceleration Y',
-					backgroundColor: 'rgba(46, 204, 113,0.2)',
-					borderColor: 'rgba(39, 174, 96,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				},
-				{
-					label: 'Acceleration Z',
-					backgroundColor: 'rgba(26, 188, 156,0.2)',
-					borderColor: 'rgba(22, 160, 133,1.0)',
-					data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
-				}
-			]
-		}		
-	var gyroChart = new Chart(gyroctx, {
-		type: 'line',
-		data: gyrodata,
-		options: {
-			scales: {
-				xAxes: [{
-					gridLines: {
-						display: false
-					},
-				}],
-				yAxes: [{
-					ticks: {
-						suggestedMin: -1000,
-						suggestedMax: 1000
-					}
-				}]
-			},
-			elements: {
-				point: {
-					radius: 0
-				}
-			}
-		}
-	});				
-	var accelChart = new Chart(accelctx, {
-		type: 'line',
-		data: acceldata,
-		options: {
-			scales: {
-				xAxes: [{
-					gridLines: {
-						display: false
-					},
-				}],
-				yAxes: [{
-					ticks: {
-						suggestedMin: -5,
-						suggestedMax: 5
-					}
-				}]
-			},
-			elements: {
-				point: {
-					radius: 0
-				}
-			}
-		}
-	});
-	
-	var socket = io('/site_namespace');
-	socket.on('myostatus', function(data) {
-		$('#myostatus').collapse('show');
-		$('#myostatus').html("<h5>" + data + "</h5>");
-		setTimeout(function() {
-			$('#myostatus').collapse('hide');
-		}, 2000);
-	});
-	socket.on('data', function(data) {		
-		//Update graphs
-		for(i = 0; i < 3; i++) {
-			gyrodata.datasets[i].data.shift();
-			acceldata.datasets[i].data.shift();
-			gyrodata.datasets[i].data.push(data[i+1]);
-			acceldata.datasets[i].data.push(data[i+4]);
-		}
-		gyroChart.data = gyrodata;
-		accelChart.data = acceldata;
-		gyroChart.update();
-		accelChart.update();
-	});		
-</script>
+<script src="js/jquery.easing.min.js"></script>
+<script src="js/scrolling-nav.js"></script>
+<script src="js/mycharts.js"></script>
 </html>

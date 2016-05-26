@@ -4,7 +4,6 @@ from socketIO_client import SocketIO, BaseNamespace
 import myo as libmyo
 import numpy as np
 import threading
-import json
 import time
 
 class MyoNamespace(BaseNamespace):

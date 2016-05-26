@@ -7,6 +7,8 @@ var site = io.of('/site_namespace');
 var myodata = [0, 0, 0, 0, 0, 0, 0];
 
 app.use('/js', express.static(__dirname + '/node_modules/chart.js/dist/'));
+app.use('/js', express.static(__dirname + '/js/'));
+app.use('/css', express.static(__dirname + '/css/'));
 
 server.listen(3000, function() {
 	console.log('Listening on http://localhost:3000');
