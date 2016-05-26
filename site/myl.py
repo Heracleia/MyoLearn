@@ -17,14 +17,12 @@ def stream():
 	hub = libmyo.Hub()
 	hub.run(1000, feed)
 	myo = feed.wait_for_single_device()
-	socketIO.emit('myoconnected')
-	socketIO.wait(seconds=1)
 
 	while 1:
 		try:
 			gyro = myo.gyroscope
 			accel = myo.acceleration
-			socketIO.emit('myoin', [time.clock(), gyro.x, gyro.y, gyro.z, accel.x, accel.y, accel.z])
+			myo_sock.emit('data', [time.clock(), gyro.x, gyro.y, gyro.z, accel.x, accel.y, accel.z])
 			time.sleep(0.02)
 		except KeyboardInterrupt:
 			break
@@ -33,7 +31,8 @@ def stream():
 			
 	hub.shutdown()
 		
-socketIO = SocketIO('localhost', 3000, MyoNamespace)
+socketIO = SocketIO('localhost', 3000)
+myo_sock = socketIO.define(MyoNamespace, '/myo_namespace')
 socketIO.wait(seconds=1)
 thread = threading.Thread(target=stream)
 thread.daemon=True
