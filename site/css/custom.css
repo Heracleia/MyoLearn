@@ -4,16 +4,16 @@ html, body {
 }
 body {
     font-family: Merriweather,'Helvetica Neue',Arial,sans-serif;
+	color: rgba(0,0,0,0.8);
+	text-align: center;
 }
 hr {
     max-width: 50px;
     border-color: #fff;
     border-width: 3px;
 }
-a {
-    -webkit-transition: all .35s;
-    -moz-transition: all .35s;
-    transition: all .35s;
+.hr-dark {
+	border-color: rgba(0,0,0,0.5);
 }
 h1,
 h2,
@@ -23,13 +23,11 @@ h5,
 h6 {
     font-family: 'Open Sans','Helvetica Neue',Arial,sans-serif;
 }
-p {
-    margin-bottom: 20px;
-    font-size: 16px;
-    line-height: 1.5;
-}
 section {
 	padding: 100px 0;
+}
+footer {
+	padding: 50px 0;
 }
 header {
     position: relative;
@@ -55,6 +53,14 @@ header .header-content .header-content-inner h1 {
     margin-bottom: 0;
     text-transform: uppercase;
     font-weight: 700;
+}
+header .header-content .header-content-inner p {
+	font-weight: 300;
+	color: rgba(255, 255, 255, 0.8);
+}
+header .header-content .header-content-inner a {
+	margin-top: 20px;
+	padding: 5px 50px;
 }
 @media(min-width:768px) {
     header {
@@ -83,6 +89,12 @@ header .header-content .header-content-inner h1 {
 }
 .bg-secondary {
 	background-color: #3498db;
+	color: #fff;
+}
+.bg-status {
+	background-color: rgba(241,196,15,0.9);
+}
+.bg-status h5 {
 	color: #fff;
 }
 #myostatus {

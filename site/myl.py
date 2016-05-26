@@ -10,6 +10,9 @@ class MyoNamespace(BaseNamespace):
 	def on_connect(self):
 		print 'Connected to http://localhost:3000'
 		
+	def on_ping_myo(self):
+		myo_sock.emit('confirm');
+		
 def stream():
 	libmyo.init() 
 	feed = libmyo.device_listener.Feed()
@@ -29,7 +32,7 @@ def stream():
 			print 'Unexpected error'
 			
 	hub.shutdown()
-		
+
 socketIO = SocketIO('localhost', 3000)
 myo_sock = socketIO.define(MyoNamespace, '/myo_namespace')
 socketIO.wait(seconds=1)
@@ -37,4 +40,7 @@ thread = threading.Thread(target=stream)
 thread.daemon=True
 thread.start()
 while 1:
-	time.sleep(1)
+	try:
+		socketIO.wait()
+	except KeyboardInterrupt:
+		break

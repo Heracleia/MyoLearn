@@ -96,12 +96,23 @@ var accelChart = new Chart(accelctx, {
 });
 
 var socket = io('/site_namespace');
-socket.on('myostatus', function(data) {
+var myoconnected = false;
+socket.on('myoconnected', function() {
+	if(!myoconnected) {
+		$('#myostatus').collapse('show');
+		$('#myostatus').html("<h5>Myo connected</h5>");
+		$('.bg-status').css("background-color", "#2ecc71");
+		setTimeout(function() {
+			$('#myostatus').collapse('hide');
+		}, 2000);
+		myoconnected = true;
+	}	
+});
+socket.on('myodc', function() {
 	$('#myostatus').collapse('show');
-	$('#myostatus').html("<h5>" + data + "</h5>");
-	setTimeout(function() {
-		$('#myostatus').collapse('hide');
-	}, 2000);
+	$('#myostatus').html("<h5>Myo disconnected</h5>");
+	$('.bg-status').css("background-color", "#e74c3c");
+	myoconnected = false;
 });
 socket.on('data', function(data) {		
 	//Update graphs
