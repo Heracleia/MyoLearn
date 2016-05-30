@@ -28,6 +28,10 @@ var sessionSchema = new Schema({
 	dataclass: String,
 	data: [myoDataSchema]
 });
+var modelSchema = new Schema({
+	name: String
+});
+var Model = mongoose.model('Model', modelSchema);
 var Session = mongoose.model('Session', sessionSchema);
 var MyoData = mongoose.model('MyoData', myoDataSchema); 
 
@@ -94,27 +98,56 @@ site.on('connection', function(socket) {
 		});
 	});
 	
+	Session.find().distinct('dataclass', function(err, classes) {
+		if(err) {
+			console.log(err);
+		} else {
+			classes.forEach(function(entry) {
+				socket.emit('addClass', entry);
+			});
+		}
+	});
+	
+	Model.find().distinct('name', function(err, names) {
+		if(err) {
+			console.log(err);
+		} else {
+			names.forEach(function(model) {
+				socket.emit('addModel', model);
+			});
+		}
+	});
+	
 	socket.on('svm_train', function(classes) {
 		var datagroups = [];
 		var processed = 0;
-		classes.forEach(function(entry) {
-			var query = Session.find({dataclass: entry})
-			query.select('data');
-			query.exec(function(err, data) {
-				if(err) {
-					console.log(err);
-				} else {
-					datagroups.push([entry, data]);
-					if(++processed == classes.length) {
-						svm.emit('train', datagroups);
+		if(classes.length < 2) {
+			socket.emit('train_status', 'Select two or more classes');
+		} else {
+			classes.forEach(function(entry) {
+				var query = Session.find({dataclass: entry})
+				query.select('data');
+				query.exec(function(err, data) {
+					if(err) {
+						console.log(err);
+					} else{
+						if(data.length == 0) {
+							socket.emit('train_status', 'No data found for class \'' + entry + '\'');
+						} else {
+							datagroups.push([entry, data]);
+							if(++processed == classes.length) {
+								svm.emit('train', datagroups);
+								socket.emit('train_status', 'Training...');
+							}
+						}					
 					}
-				}
+				});
 			});
-		});
+		}
 	});
 	
-	socket.on('svm_predict', function() {
-		svm.emit('predict');
+	socket.on('svm_predict', function(data) {
+		svm.emit('predict', data);
 	});
 	
 	setInterval(function() {
@@ -125,8 +158,17 @@ site.on('connection', function(socket) {
 svm.on('connection', function(socket) {
 	console.log('SVM connected');
 	
-	socket.on('trained', function() {
-		console.log('Training complete')
+	socket.on('trained', function(filename) {
+		var model = new Model({name: filename});
+		model.save(function(err, modelObj) {
+			if(err) {
+				console.log(err);
+			} else {
+				console.log('Model ' + modelObj + ' saved');
+			}
+		});
+		site.emit('train_status', 'Training complete');
+		site.emit('addModel', filename)
 	});
 	
 	socket.on('disconnect', function() {

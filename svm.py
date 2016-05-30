@@ -2,6 +2,8 @@ from sklearn import svm
 from sklearn.metrics import accuracy_score
 from sklearn.externals import joblib
 from socketIO_client import SocketIO, BaseNamespace
+import numpy as np
+import time
 
 class SVMNamespace(BaseNamespace):
 	def on_connect(self):
@@ -24,22 +26,26 @@ class SVMNamespace(BaseNamespace):
 					final.append(formatted)
 			dataDict[key] = final
 		
-		clf = svm.SVC()
+		clf = svm.LinearSVC()
 		X = []
 		Y = []
+		filename = time.strftime('%Y%m%d-%H%M%S')
 		for key in dataDict.keys():
 			x = dataDict[key]
 			y = [str(key)] * len(x)
 			X += x
 			Y += y
+			filename += str(key)
 		print clf.fit(X, Y)
-		joblib.dump(clf, 'dump/clf.pkl')
-		svm_sock.emit('trained')
+		filename += '.pkl'
+		filename = filename.replace(' ', '')
+		joblib.dump(clf, 'dump/' + filename)
+		svm_sock.emit('trained', filename)
 		
-	def on_predict(self):
-		clf = joblib.load('dump/clf.pkl')
-		data = [0, 0, 0, 0, 0, 0]
-		print clf.predict(data)
+	def on_predict(self, data):
+		clf = joblib.load('dump/' + str(data['svm_model']))
+		X = np.asarray(data['myodata']).reshape(1, -1)
+		print clf.predict(X)
 			
 		
 socketIO = SocketIO('localhost', 3000)

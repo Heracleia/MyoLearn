@@ -99,6 +99,8 @@ var socket = io('/site_namespace'),
 	myoconnected = false,
 	recording = false,
 	statusShown = false,
+	predicting = false,
+	model = '',
 	clock = 0,
 	offset = 0,
 	statusTimer = Number.MAX_VALUE;
@@ -106,6 +108,14 @@ var socket = io('/site_namespace'),
 $('#recordButton').prop('disabled', true);
 $('#stopButton').prop('disabled', true);
 showStatus("Waiting for myo to be connected...", "#f1c40f", Number.MAX_VALUE);
+
+socket.on('addClass', function(entry) {
+	addClass(entry);
+});
+
+socket.on('addModel', function(model) {
+	$('#pdc').append("<option>" + model + "</option>");
+});
 
 socket.on('myoconnected', function() {
 	if(!myoconnected) {
@@ -122,7 +132,6 @@ socket.on('myodc', function() {
 });
 
 socket.on('data', function(data) {		
-	//Update graphs
 	for(i = 0; i < 3; i++) {
 		gyrodata.datasets[i].data.shift();
 		acceldata.datasets[i].data.shift();
@@ -135,12 +144,19 @@ socket.on('data', function(data) {
 	accelChart.update();
 	if(recording)
 		socket.emit('data', data);
+	if(predicting)
+		socket.emit('svm_predict', {svm_model: model, myodata: data.slice(1,7)});
 });	
+
+socket.on('train_status', function(msg) {
+	$('#train_status').html("<h4>" + msg + "</h4>");
+});
 
 $('#recordModalConfirm').on('click', function(e) {
 	e.preventDefault();
 	
 	var dataClass = $('#cdc').val();
+	addClass(dataClass);
 	socket.emit('record', dataClass);
 	
 	$('#recordModal').modal('hide');
@@ -160,11 +176,17 @@ $('#stopButton').on('click', function(e) {
 });
 
 $('#svm_train_button').on('click', function(e) {
-	socket.emit('svm_train', ['Test', 'Resting']);
+	e.preventDefault();
+	
+	var values = $('#tdc').val() || [];
+	socket.emit('svm_train', values);
 });
 
 $('#svm_predict_button').on('click', function(e) {
-	socket.emit('svm_predict');
+	e.preventDefault();
+	
+	model = $('#pdc').val();
+	predicting = true;
 });
 
 function stop() {
@@ -185,10 +207,13 @@ function showStatus(statusText, bgcolor, timeout) {
 	$('.bg-status').css("background-color", bgcolor);
 }
 
+function addClass(entry) {
+	$('#tdc').append("<option>" + entry + "</option>");
+}
+
 //Update function
 setInterval(function() {
 	var deltaTime = Date.now() - offset;
-	console.log(deltaTime);
 	
 	if(statusTimer > 0) {
 		statusTimer -= deltaTime;
@@ -205,7 +230,6 @@ setInterval(function() {
 		clock += deltaTime;
 		var minutes = Math.floor(clock / 60000);
 		var seconds = Math.round(clock / 1000 - minutes * 60);
-		console.log(minutes, seconds);
 		var fint = (new Array(3).join(0) + String(minutes)).slice(-2) + ':' + (new Array(3).join(0) + String(seconds)).slice(-2);
 		$('#timer').html(fint);
 	}
