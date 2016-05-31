@@ -1,3 +1,4 @@
+//Define global variables
 var express = require('express');
 var app = express();
 var server = require('http').Server(app)
@@ -9,11 +10,15 @@ var site = io.of('/site_namespace');
 var svm = io.of('/svm_namespace');
 var myodata = [0, 0, 0, 0, 0, 0, 0];
 
+//Define static directories
 app.use('/js', express.static(__dirname + '/node_modules/chart.js/dist/'));
 app.use('/js', express.static(__dirname + '/js/'));
 app.use('/css', express.static(__dirname + '/css/'));
 
+//Connect to database
 mongoose.connect('mongodb://localhost:27017/myolearn');
+
+//Define schemas
 var myoDataSchema = new Schema({
 	clock: Number,
 	gyroX: Number,
@@ -31,6 +36,8 @@ var sessionSchema = new Schema({
 var modelSchema = new Schema({
 	name: String
 });
+
+//Define models
 var Model = mongoose.model('Model', modelSchema);
 var Session = mongoose.model('Session', sessionSchema);
 var MyoData = mongoose.model('MyoData', myoDataSchema); 
@@ -43,49 +50,43 @@ app.get('/', function(req, res) {
 	res.sendFile(__dirname + '/index.html');
 });
 
-myo.on('connection', function(socket) {
-	console.log('Myo connected');
-	site.emit('myostatus', 'Myo connected');
-	
-	socket.on('confirm', function() {
-		site.emit('myoconnected');
-	});
-	
-	socket.on('disconnect', function() {
-		console.log('Myo disconnected');
-		site.emit('myodc');
-	});
-	
-	socket.on('data', function(data) {
-		myodata = data;
-	});
-	
-	setInterval(function() {
-		site.emit('data', myodata);
-	}, 60);
-});
-
+//On site connection
 site.on('connection', function(socket) {	
-	console.log('Site user connected');
-	myo.emit('ping_myo');
-	
+	console.log('Site user connected');	
 	socket.on('disconnect', function() {
 		console.log('Site user disconnected');
 	});
 	
+	//Check if myo is connected
+	myo.emit('ping_myo');
+	
+	//Update site fields with data from database
+	Session.find().distinct('dataclass', function(err, classes) {
+		if(err) {
+			console.log(err);
+		} else {
+			classes.forEach(function(entry) {
+				socket.emit('addClass', entry);
+			});
+		}
+	});	
+	Model.find().distinct('name', function(err, names) {
+		if(err) {
+			console.log(err);
+		} else {
+			names.forEach(function(model) {
+				socket.emit('addModel', model);
+			});
+		}
+	});
+	
+	//Create recording session to be added to database
 	var session = null;
 	socket.on('record', function(type) {
 		session = new Session({dataclass: type, data: []});
 	});	
-	socket.on('stop', function() {
-		session.save(function(err, sessionObj) {
-			if(err) {
-				console.log(err);
-			} else {
-				console.log('Saved session successfully');
-			}
-		});
-	});
+	
+	//Add data to session
 	socket.on('data', function(data) {
 		session.data.push({
 			clock: data[0],
@@ -98,26 +99,18 @@ site.on('connection', function(socket) {
 		});
 	});
 	
-	Session.find().distinct('dataclass', function(err, classes) {
-		if(err) {
-			console.log(err);
-		} else {
-			classes.forEach(function(entry) {
-				socket.emit('addClass', entry);
-			});
-		}
+	//Save session to database
+	socket.on('stop', function() {
+		session.save(function(err, sessionObj) {
+			if(err) {
+				console.log(err);
+			} else {
+				console.log('Saved session successfully');
+			}
+		});
 	});
 	
-	Model.find().distinct('name', function(err, names) {
-		if(err) {
-			console.log(err);
-		} else {
-			names.forEach(function(model) {
-				socket.emit('addModel', model);
-			});
-		}
-	});
-	
+	//On train, gather training data from database and pass to svm
 	socket.on('svm_train', function(classes) {
 		var datagroups = [];
 		var processed = 0;
@@ -146,18 +139,49 @@ site.on('connection', function(socket) {
 		}
 	});
 	
+	//Predict based on data (called continuously)	
 	socket.on('svm_predict', function(data) {
-		svm.emit('predict', data);
+		svm.emit('predict', data); //Data contains .svm_model and .myodata
 	});
 	
+	//Check myo connection every 5 seconds
 	setInterval(function() {
 		myo.emit('ping_myo');
 	}, 5000);
 });
 
+//On myo connection
+myo.on('connection', function(socket) {
+	console.log('Myo connected');
+	socket.on('disconnect', function() {
+		console.log('Myo disconnected');
+		site.emit('myodc');
+	});
+	
+	//Confirm for site that myo is connected
+	socket.on('confirm', function() {
+		site.emit('myoconnected');
+	});
+	
+	//Update incoming data
+	socket.on('data', function(data) {
+		myodata = data;
+	});
+	
+	//Constantly emit data
+	setInterval(function() {
+		site.emit('data', myodata);
+	}, 60);
+});
+
+//On svm connection
 svm.on('connection', function(socket) {
 	console.log('SVM connected');
+	socket.on('disconnect', function() {
+		console.log('SVM disconnected');
+	});
 	
+	//Update site when training information is received
 	socket.on('trained', function(filename) {
 		var model = new Model({name: filename});
 		model.save(function(err, modelObj) {
@@ -169,9 +193,5 @@ svm.on('connection', function(socket) {
 		});
 		site.emit('train_status', 'Training complete');
 		site.emit('addModel', filename)
-	});
-	
-	socket.on('disconnect', function() {
-		console.log('SVM disconnected');
 	});
 });

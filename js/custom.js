@@ -1,3 +1,15 @@
+//Define global variables
+var socket = io('/site_namespace'),
+	myoconnected = false,
+	recording = false,
+	statusShown = false,
+	predicting = false,
+	model = '',
+	clock = 0,
+	offset = 0,
+	statusTimer = Number.MAX_VALUE;
+
+//Define charts
 var gyroctx = $('#gyroChart'),
 	accelctx = $('#accelChart'),
 	gyrodata = {
@@ -46,6 +58,8 @@ var gyroctx = $('#gyroChart'),
 			}
 		]
 	}		
+	
+//Create gyro chart
 var gyroChart = new Chart(gyroctx, {
 	type: 'line',
 	data: gyrodata,
@@ -69,7 +83,9 @@ var gyroChart = new Chart(gyroctx, {
 			}
 		}
 	}
-});				
+});			
+
+//Create accel chart	
 var accelChart = new Chart(accelctx, {
 	type: 'line',
 	data: acceldata,
@@ -95,28 +111,12 @@ var accelChart = new Chart(accelctx, {
 	}
 });
 
-var socket = io('/site_namespace'),
-	myoconnected = false,
-	recording = false,
-	statusShown = false,
-	predicting = false,
-	model = '',
-	clock = 0,
-	offset = 0,
-	statusTimer = Number.MAX_VALUE;
-
+//Initialization
 $('#recordButton').prop('disabled', true);
 $('#stopButton').prop('disabled', true);
 showStatus("Waiting for myo to be connected...", "#f1c40f", Number.MAX_VALUE);
 
-socket.on('addClass', function(entry) {
-	addClass(entry);
-});
-
-socket.on('addModel', function(model) {
-	$('#pdc').append("<option>" + model + "</option>");
-});
-
+//Myo connection
 socket.on('myoconnected', function() {
 	if(!myoconnected) {
 		showStatus("Myo connected", "#2ecc71", 3000);
@@ -124,14 +124,13 @@ socket.on('myoconnected', function() {
 		$('#recordButton').prop('disabled', false);
 	}	
 });
-
 socket.on('myodc', function() {
 	showStatus("Myo disconnected", "#e74c3c", 3000);
 	myoconnected = false;
-	stop();
+	stopRecording();
 });
-
-socket.on('data', function(data) {		
+socket.on('data', function(data) {	
+	//Update charts
 	for(i = 0; i < 3; i++) {
 		gyrodata.datasets[i].data.shift();
 		acceldata.datasets[i].data.shift();
@@ -142,21 +141,25 @@ socket.on('data', function(data) {
 	accelChart.data = acceldata;
 	gyroChart.update();
 	accelChart.update();
+	
+	//If recording, emit recording data
 	if(recording)
 		socket.emit('data', data);
+	
+	//If predicting, emit prediction data
 	if(predicting)
 		socket.emit('svm_predict', {svm_model: model, myodata: data.slice(1,7)});
-});	
-
-socket.on('train_status', function(msg) {
-	$('#train_status').html("<h4>" + msg + "</h4>");
 });
 
+//Recording input
+$('#recordButton').on('click', function(e) {
+	$('#recordModal').modal('show');
+});
 $('#recordModalConfirm').on('click', function(e) {
 	e.preventDefault();
 	
 	var dataClass = $('#cdc').val();
-	addClass(dataClass);
+	$('#tdc').append("<option>" + dataClass + "</option>");
 	socket.emit('record', dataClass);
 	
 	$('#recordModal').modal('hide');
@@ -166,15 +169,11 @@ $('#recordModalConfirm').on('click', function(e) {
 	showStatus("Recording...", "#e74c3c", Number.MAX_VALUE)
 	offset = Date.now();
 });
-
-$('#recordButton').on('click', function(e) {
-	$('#recordModal').modal('show');
-});
-
 $('#stopButton').on('click', function(e) {
-	stop();
+	stopRecording();
 });
 
+//SVM training input
 $('#svm_train_button').on('click', function(e) {
 	e.preventDefault();
 	
@@ -182,50 +181,65 @@ $('#svm_train_button').on('click', function(e) {
 	socket.emit('svm_train', values);
 });
 
+//SVM predict input
 $('#svm_predict_button').on('click', function(e) {
 	e.preventDefault();
 	
-	model = $('#pdc').val();
 	predicting = true;
+	model = $('#pdc').val();
 });
 
-function stop() {
-	$('#stopButton').prop('disabled', true);
-	$('#recordButton').prop('disabled', false);
-	clock = 0;
-	if(recording) {
-		socket.emit('stop');
-		recording = false;
-		$('#timer').html('00:00');
-		showStatus("Recording has been saved", "#2ecc71", 3000);
-	}
-}
+//Update dynamic fields
+socket.on('addClass', function(entry) {
+	$('#tdc').append("<option>" + entry + "</option>");
+});
+socket.on('addModel', function(model) {
+	$('#pdc').append("<option>" + model + "</option>");
+});
+socket.on('train_status', function(msg) {
+	$('#train_status').html("<h4>" + msg + "</h4>");
+});
 
+//Show status
+socket.on('showStatus', function(msg) {
+	showStatus(msg.statusText, msg.bgcolor, msg.timeout);
+});
 function showStatus(statusText, bgcolor, timeout) {
 	statusTimer = timeout;	
 	$('#myostatus').html("<h5>" + statusText + "</h5>");
 	$('.bg-status').css("background-color", bgcolor);
 }
 
-function addClass(entry) {
-	$('#tdc').append("<option>" + entry + "</option>");
+//Stop recording (on stop or dc)
+function stopRecording() {
+	$('#stopButton').prop('disabled', true);
+	$('#recordButton').prop('disabled', false);
+	clock = 0;
+	if(recording) {
+		recording = false;
+		showStatus("Recording has been saved", "#2ecc71", 3000);
+		$('#timer').html('00:00');
+		socket.emit('stop');
+	}
 }
 
 //Update function
 setInterval(function() {
 	var deltaTime = Date.now() - offset;
 	
+	//Update status timer
 	if(statusTimer > 0) {
 		statusTimer -= deltaTime;
 		if(!statusShown) {
-			$('#myostatus').collapse('show');
 			statusShown = true;
+			$('#myostatus').collapse('show');
 		}
 	} else if(statusShown) {
-		$('#myostatus').collapse('hide');
 		statusShown = false;
+		$('#myostatus').collapse('hide');
 	}
 	
+	//Update recording timer
 	if(recording) {
 		clock += deltaTime;
 		var minutes = Math.floor(clock / 60000);
