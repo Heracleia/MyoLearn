@@ -10,6 +10,7 @@ class SVMNamespace(BaseNamespace):
 		print 'Connected to http://localhost:3000'
 		
 	def on_train(self, data):
+		#Create dictionary of classes and raw incoming data
 		rawDict = {}
 		for entry in data:
 			if rawDict.has_key(entry[0]):
@@ -17,6 +18,7 @@ class SVMNamespace(BaseNamespace):
 			else:
 				rawDict[entry[0]] = entry[1]
 				
+		#Create dictionary with raw data formatted properly
 		dataDict = {}
 		for key in rawDict.keys():
 			final = []
@@ -26,7 +28,7 @@ class SVMNamespace(BaseNamespace):
 					final.append(formatted)
 			dataDict[key] = final
 		
-		clf = svm.LinearSVC()
+		#Arrange data for svm reading
 		X = []
 		Y = []
 		filename = time.strftime('%Y%m%d-%H%M%S')
@@ -36,10 +38,14 @@ class SVMNamespace(BaseNamespace):
 			X += x
 			Y += y
 			filename += str(key)
+			
+		clf = svm.LinearSVC()
 		print clf.fit(X, Y)
-		filename += '.pkl'
+		
+		#Save to file
 		filename = filename.replace(' ', '')
-		joblib.dump(clf, 'dump/' + filename)
+		joblib.dump(clf, 'dump/' + filename + '.pkl')
+		
 		svm_sock.emit('trained', filename)
 		
 	def on_predict(self, data):

@@ -14,12 +14,14 @@ class MyoNamespace(BaseNamespace):
 		myo_sock.emit('confirm');
 		
 def stream():
+	#Initialize
 	libmyo.init() 
 	feed = libmyo.device_listener.Feed()
 	hub = libmyo.Hub()
 	hub.run(1000, feed)
 	myo = feed.wait_for_single_device()
 
+	#Continuously collect and emit data
 	while 1:
 		try:
 			gyro = myo.gyroscope
@@ -33,6 +35,7 @@ def stream():
 			
 	hub.shutdown()
 
+#Start data collection as separate thread
 socketIO = SocketIO('localhost', 3000)
 myo_sock = socketIO.define(MyoNamespace, '/myo_namespace')
 socketIO.wait(seconds=1)
