@@ -49,7 +49,7 @@ class SVMNamespace(BaseNamespace):
 		svm_sock.emit('trained', filename)
 		
 	def on_predict(self, data):
-		clf = joblib.load('dump/' + str(data['svm_model']))
+		clf = joblib.load('dump/' + str(data['svm_model']) + '.pkl')
 		X = np.asarray(data['myodata']).reshape(1, -1)
 		print clf.predict(X)
 			

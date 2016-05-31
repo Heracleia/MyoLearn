@@ -7,14 +7,6 @@ body {
 	color: rgba(0,0,0,0.8);
 	text-align: center;
 }
-hr {
-    max-width: 50px;
-    border-color: #fff;
-    border-width: 3px;
-}
-.hr-dark {
-	border-color: rgba(0,0,0,0.5);
-}
 h1,
 h2,
 h3,
@@ -23,11 +15,13 @@ h5,
 h6 {
     font-family: 'Open Sans','Helvetica Neue',Arial,sans-serif;
 }
-section {
-	padding: 100px 0;
+hr {
+    max-width: 50px;
+    border-color: #fff;
+    border-width: 3px;
 }
-footer {
-	padding: 50px 0;
+.hr-dark {
+	border-color: rgba(0,0,0,0.5);
 }
 header {
     position: relative;
@@ -79,6 +73,12 @@ header .header-content .header-content-inner a {
         margin-left: auto;
         max-width: 1000px;
     }
+}
+section {
+	padding: 100px 0;
+}
+footer {
+	padding: 50px 0;
 }
 .section-heading {
 	margin-top: 0;
