@@ -10,6 +10,7 @@ var socket = io('/site_namespace'),
 	statusTimer = Number.MAX_VALUE,
 	predictDict = [],
 	predict_i = -1,
+	selselDataclass = '',
 	colors = ["#e67e22", "#e74c3c", "#3498db", "#9b59b6", "#1abc9c"];
 
 //Define charts
@@ -134,20 +135,29 @@ var predictChart = new Chart(predictctx, {
 //Initialization
 $('#recordButton').prop('disabled', true);
 $('#stopButton').prop('disabled', true);
+$('#svm_predict_start').prop('disabled', true);
+$('#svm_predict_stop').prop('disabled', true);
 showStatus("Waiting for myo to be connected...", "#f1c40f", Number.MAX_VALUE);
 
 //Myo connection
 socket.on('myoconnected', function() {
 	if(!myoconnected) {
-		showStatus("Myo connected", "#2ecc71", 3000);
 		myoconnected = true;
-		$('#recordButton').prop('disabled', false);
-	}	
+		if(!recording && !predicting) {
+			showStatus("Myo connected", "#2ecc71", 3000);
+			$('#recordButton').prop('disabled', false);
+			$('#svm_predict_start').prop('disabled', false);
+		}
+	}
 });
 socket.on('myodc', function() {
-	showStatus("Myo disconnected", "#e74c3c", 3000);
 	myoconnected = false;
-	stopRecording();
+	setTimeout(function() {
+		if(!myoconnected) {
+			showStatus("Myo disconnected", "#e74c3c", 3000);
+			stopRecording();
+		}
+	}, 5000);
 });
 socket.on('data', function(data) {	
 	//Update charts
@@ -178,19 +188,36 @@ $('#recordButton').on('click', function(e) {
 $('#recordModalConfirm').on('click', function(e) {
 	e.preventDefault();
 	
-	var dataClass = $('#cdc').val();
-	$('#tdc').append("<option>" + dataClass + "</option>");
-	socket.emit('record', dataClass);
+	selDataclass = $('#cdc').val();
 	
-	$('#recordModal').modal('hide');
-	$('#stopButton').prop('disabled', false);
-	$('#recordButton').prop('disabled', true);
-	recording = true;
-	showStatus("Recording...", "#e74c3c", Number.MAX_VALUE)
-	offset = Date.now();
+	//Check if class already exists
+	socket.emit('checkExists', selDataclass, function(err, msg) {
+		if(err) {
+			console.log(err);
+		} else {
+			$('#recordModal').modal('hide');
+			if(msg == 1) {
+				$('#overwriteModal').modal('show');
+			} else {
+				addClass(selDataclass);
+				startRecording();
+			}
+		}
+	});	
 });
 $('#stopButton').on('click', function(e) {
 	stopRecording();
+});
+
+//Overwrite modal
+$('#overwriteAppend').on('click', function() {
+	$('#overwriteModal').modal('hide');
+	startRecording();
+});
+$('#overwriteOverwrite').on('click', function() {
+	$('#overwriteModal').modal('hide');
+	socket.emit('remove_class', selDataclass);
+	startRecording();
 });
 
 //SVM training input
@@ -202,15 +229,24 @@ $('#svm_train_button').on('click', function(e) {
 });
 
 //SVM predict input
-$('#svm_predict_button').on('click', function(e) {
+$('#svm_predict_start').on('click', function(e) {
 	e.preventDefault();
 	
-	predicting = true;
+	$('#predictChart').collapse('show');
 	socket.emit('svm_predict_start');
-	showStatus("Predicting...", "#f1c40f", Number.MAX_VALUE);
-	model = $('#pdc').val();
+	model = $('#pdc').val();	
+	$('#svm_predict_start').prop('disabled', true);
+	$('#svm_predict_stop').prop('disabled', false);
+	setTimeout(function() {
+		showStatus("Predicting...", "#f1c40f", Number.MAX_VALUE);
+		predicting = true;
+	}, 500);
 });
 $('#svm_predict_stop').on('click', function(e) {
+	$('#predictChart').collapse('hide');
+	socket.emit('svm_predict_stop');
+	$('#svm_predict_start').prop('disabled', false);
+	$('#svm_predict_stop').prop('disabled', true);
 	predicting = false;
 	predict_i = -1;
 	predictDict = [];
@@ -220,7 +256,6 @@ $('#svm_predict_stop').on('click', function(e) {
 	predictChart.data = predictdata;
 	predictChart.update();
 	showStatus("Predicting stopped", "#2ecc71", 3000);
-	socket.emit('svm_predict_stop');
 });
 
 //Update predict graph
@@ -259,17 +294,22 @@ socket.on('predict_data', function(data) {
 });
 
 //Update dynamic fields
+socket.on('clearClasses', function() {
+	$('#tdc').empty();
+});
 socket.on('addClass', function(entry) {
+	addClass(entry);
+});
+function addClass(entry) {
 	$('#tdc').append("<option>" + entry + "</option>");
 	$('#tdc').attr("size", $("#tdc option").length);
-});
+}
 socket.on('addModel', function(model) {
 	$('#pdc').append("<option>" + model + "</option>");
 });
 
 //Show status
 socket.on('showStatus', function(msg) {
-	console.log(msg);
 	showStatus(msg.statusText, msg.bgcolor, msg.timeout);
 });
 function showStatus(statusText, bgcolor, timeout) {
@@ -282,6 +322,16 @@ function showStatus(statusText, bgcolor, timeout) {
 $('#myostatus').on('click', function(e) {
 	statusTimer = 0;
 });
+
+//Start recoding
+function startRecording() {
+	socket.emit('record', selDataclass);	
+	$('#stopButton').prop('disabled', false);
+	$('#recordButton').prop('disabled', true);
+	recording = true;
+	showStatus("Recording...", "#e74c3c", Number.MAX_VALUE)
+	offset = Date.now();
+}
 
 //Stop recording (on stop or dc)
 function stopRecording() {

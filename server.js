@@ -74,6 +74,7 @@ site.on('connection', function(socket) {
 		if(err) {
 			console.log(err);
 		} else {
+			socket.emit('clearClasses');
 			classes.forEach(function(entry) {
 				socket.emit('addClass', entry);
 			});
@@ -87,6 +88,23 @@ site.on('connection', function(socket) {
 				socket.emit('addModel', model);
 			});
 		}
+	});
+	
+	//Check if dataclass exists in database
+	socket.on('checkExists', function(entry, callback) {
+		var query = Session.find({dataclass: entry});
+		query.select('data');
+		query.exec(function(err, data) {
+			var exists = 0;
+			if(data.length > 0)
+				exists = 1;
+			callback(err, exists);
+		});
+	});
+	
+	//Remove existing dataclass
+	socket.on('remove_class', function(entry) {
+		Session.find({dataclass: entry}).remove().exec();		
 	});
 	
 	//Create recording session to be added to database
@@ -124,11 +142,11 @@ site.on('connection', function(socket) {
 		var datagroups = [];
 		var processed = 0;
 		socket.emit('showStatus', {statusText: "Training...", bgcolor: "#f1c40f", timeout: Number.MAX_VALUE});
-		if(classes.length < 2) {
-			socket.emit('showStatus', {statusText: "Select two or more classes", bgcolor: "#e74c3c", timeout: 3000});
+		if(classes.length < 2 || classes.length > 5) {
+			socket.emit('showStatus', {statusText: "Select two to five classes", bgcolor: "#e74c3c", timeout: 3000});
 		} else {
 			classes.forEach(function(entry) {
-				var query = Session.find({dataclass: entry})
+				var query = Session.find({dataclass: entry});
 				query.select('data');
 				query.exec(function(err, data) {
 					if(err) {
