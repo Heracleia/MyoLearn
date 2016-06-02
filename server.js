@@ -36,11 +36,20 @@ var sessionSchema = new Schema({
 var modelSchema = new Schema({
 	name: String
 });
+var predictDataSchema = new Schema({
+	dataclass: String
+});
+var predictSchema = new Schema({
+	date: {type: Date, default: Date.now},
+	data: [predictDataSchema]
+});
 
 //Define models
 var Model = mongoose.model('Model', modelSchema);
 var Session = mongoose.model('Session', sessionSchema);
-var MyoData = mongoose.model('MyoData', myoDataSchema); 
+var MyoData = mongoose.model('MyoData', myoDataSchema);
+var Predict = mongoose.model('Predict', predictSchema);
+var PredictData = mongoose.model('PredictData', predictDataSchema);
 
 server.listen(3000, function() {
 	console.log('Listening on http://localhost:3000');
@@ -84,7 +93,7 @@ site.on('connection', function(socket) {
 	var session = null;
 	socket.on('record', function(type) {
 		session = new Session({dataclass: type, data: []});
-	});	
+	});
 	
 	//Add data to session
 	socket.on('data', function(data) {
@@ -114,8 +123,9 @@ site.on('connection', function(socket) {
 	socket.on('svm_train', function(classes) {
 		var datagroups = [];
 		var processed = 0;
+		socket.emit('showStatus', {statusText: "Training...", bgcolor: "#f1c40f", timeout: Number.MAX_VALUE});
 		if(classes.length < 2) {
-			socket.emit('train_status', 'Select two or more classes');
+			socket.emit('showStatus', {statusText: "Select two or more classes", bgcolor: "#e74c3c", timeout: 3000});
 		} else {
 			classes.forEach(function(entry) {
 				var query = Session.find({dataclass: entry})
@@ -125,21 +135,38 @@ site.on('connection', function(socket) {
 						console.log(err);
 					} else{
 						if(data.length == 0) {
-							socket.emit('train_status', 'No data found for class \'' + entry + '\'');
+							console.log('No data');
 						} else {
 							datagroups.push([entry, data]);
 							if(++processed == classes.length) {
 								svm.emit('train', datagroups);
-								socket.emit('train_status', 'Training...');
+								socket.emit('showStatus', {statusText: "Training complete", bgcolor: "#2ecc71", timeout: 3000});
 							}
-						}					
+						}
 					}
 				});
 			});
 		}
 	});
 	
-	//Predict based on data (called continuously)	
+	//Predict data communication with database
+	var predict = null;
+	socket.on('svm_predict_start', function() {
+		predict = new Predict({data: []})
+	});	
+	socket.on('predictResult', function(data) {
+		predict.data.push({
+			dataclass: data
+		});
+	});
+	socket.on('svm_predict_stop', function() {
+		predict.save(function(err, predictObj) {
+			if(err)
+				console.log(err);
+		});
+	});
+	
+	//Forward myo data from site to svm
 	socket.on('svm_predict', function(data) {
 		svm.emit('predict', data); //Data contains .svm_model and .myodata
 	});
@@ -192,6 +219,11 @@ svm.on('connection', function(socket) {
 			}
 		});
 		site.emit('train_status', 'Training complete');
-		site.emit('addModel', filename)
+		site.emit('addModel', filename);
+	});
+	
+	//Forward predict data from svm to site
+	socket.on('predict_data', function(data) {
+		site.emit('predict_data', data);
 	});
 });

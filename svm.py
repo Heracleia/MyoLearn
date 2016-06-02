@@ -17,7 +17,7 @@ class SVMNamespace(BaseNamespace):
 				rawDict[entry[0]].append(entry[1])
 			else:
 				rawDict[entry[0]] = entry[1]
-				
+		
 		#Create dictionary with raw data formatted properly
 		dataDict = {}
 		for key in rawDict.keys():
@@ -51,7 +51,8 @@ class SVMNamespace(BaseNamespace):
 	def on_predict(self, data):
 		clf = joblib.load('dump/' + str(data['svm_model']) + '.pkl')
 		X = np.asarray(data['myodata']).reshape(1, -1)
-		print clf.predict(X)
+		result = clf.predict(X)[0]
+		svm_sock.emit('predict_data', result)
 			
 		
 socketIO = SocketIO('localhost', 3000)

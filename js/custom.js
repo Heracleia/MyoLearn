@@ -6,12 +6,16 @@ var socket = io('/site_namespace'),
 	predicting = false,
 	model = '',
 	clock = 0,
-	offset = 0,
-	statusTimer = Number.MAX_VALUE;
+	offset = Date.now(),
+	statusTimer = Number.MAX_VALUE,
+	predictDict = [],
+	predict_i = -1,
+	colors = ["#e67e22", "#e74c3c", "#3498db", "#9b59b6", "#1abc9c"];
 
 //Define charts
 var gyroctx = $('#gyroChart'),
 	accelctx = $('#accelChart'),
+	predictctx = $('#predictChart'),
 	gyrodata = {
 		labels: Array.apply(null, Array(20)).map(String.prototype.valueOf, ""),
 		datasets: [
@@ -57,7 +61,14 @@ var gyroctx = $('#gyroChart'),
 				data: Array.apply(null, Array(20)).map(Number.prototype.valueOf, 0)
 			}
 		]
-	}		
+	},
+	predictdata = {
+		labels: [],
+		datasets: [{
+			data: [],
+			backgroundColor: []
+		}]
+	};
 	
 //Create gyro chart
 var gyroChart = new Chart(gyroctx, {
@@ -108,6 +119,15 @@ var accelChart = new Chart(accelctx, {
 				radius: 0
 			}
 		}
+	}
+});
+
+//Create predict chart
+var predictChart = new Chart(predictctx, {
+	type: 'doughnut',
+	data: predictdata,
+	options: {
+		
 	}
 });
 
@@ -186,22 +206,70 @@ $('#svm_predict_button').on('click', function(e) {
 	e.preventDefault();
 	
 	predicting = true;
+	socket.emit('svm_predict_start');
+	showStatus("Predicting...", "#f1c40f", Number.MAX_VALUE);
 	model = $('#pdc').val();
+});
+$('#svm_predict_stop').on('click', function(e) {
+	predicting = false;
+	predict_i = -1;
+	predictDict = [];
+	predictdata.labels = [];
+	predictdata.datasets[0].data = [];
+	predictdata.datasets[0].backgroundColor = [];
+	predictChart.data = predictdata;
+	predictChart.update();
+	showStatus("Predicting stopped", "#2ecc71", 3000);
+	socket.emit('svm_predict_stop');
+});
+
+//Update predict graph
+socket.on('predict_data', function(data) {
+	if(predicting) {
+		//If not in graph, initialize option
+		if(predictDict[data] == null) {
+			predictDict[data] = ++predict_i;
+			predictdata.labels[predictDict[data]] = data;
+			predictdata.datasets[0].data[predictDict[data]] = 0;
+			predictdata.datasets[0].backgroundColor[predictDict[data]] = colors[predictDict[data]];
+		}
+		
+		//Increase value for option
+		predictdata.datasets[0].data[predictDict[data]]++;
+		
+		//Adjust based on sum
+		var sum = 0;
+		$.each(predictdata.datasets[0].data, function(index, value) {
+			sum += value;
+		});
+		if(sum > 10) {
+			$.each(predictdata.datasets[0].data, function(index, value) {
+				if(value > 0)
+					predictdata.datasets[0].data[index]--;
+			});
+		}
+		
+		//Give result to server for database
+		socket.emit('predictResult', data);
+		
+		//Update graph
+		predictChart.data = predictdata;
+		predictChart.update();
+	}	
 });
 
 //Update dynamic fields
 socket.on('addClass', function(entry) {
 	$('#tdc').append("<option>" + entry + "</option>");
+	$('#tdc').attr("size", $("#tdc option").length);
 });
 socket.on('addModel', function(model) {
 	$('#pdc').append("<option>" + model + "</option>");
 });
-socket.on('train_status', function(msg) {
-	$('#train_status').html("<h4>" + msg + "</h4>");
-});
 
 //Show status
 socket.on('showStatus', function(msg) {
+	console.log(msg);
 	showStatus(msg.statusText, msg.bgcolor, msg.timeout);
 });
 function showStatus(statusText, bgcolor, timeout) {
@@ -209,6 +277,11 @@ function showStatus(statusText, bgcolor, timeout) {
 	$('#myostatus').html("<h5>" + statusText + "</h5>");
 	$('.bg-status').css("background-color", bgcolor);
 }
+
+//Hide status on click
+$('#myostatus').on('click', function(e) {
+	statusTimer = 0;
+});
 
 //Stop recording (on stop or dc)
 function stopRecording() {
