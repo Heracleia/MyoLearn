@@ -4,10 +4,12 @@ var app = express();
 var server = require('http').Server(app)
 var io = require('socket.io')(server);
 var mongoose = require('mongoose');
+var pyshell = require('python-shell');
 var Schema = mongoose.Schema;
 var myo = io.of('/myo_namespace');
 var site = io.of('/site_namespace');
 var svm = io.of('/svm_namespace');
+var hmm = io.of('/hmm_namespace');
 var myodata = [0, 0, 0, 0, 0, 0, 0];
 
 //Define static directories
@@ -17,6 +19,18 @@ app.use('/css', express.static(__dirname + '/css/'));
 
 //Connect to database
 mongoose.connect('mongodb://localhost:27017/myolearn');
+
+//Start scripts
+pyshell.run('svm.py', function(err) {
+	if(err) {
+		console.log(err);
+	}
+});
+pyshell.run('hmm.py', function(err) {
+	if(err) {
+		console.log(err);
+	}
+});
 
 //Define schemas
 var myoDataSchema = new Schema({
@@ -74,9 +88,9 @@ site.on('connection', function(socket) {
 		if(err) {
 			console.log(err);
 		} else {
-			socket.emit('clearClasses');
+			socket.emit('clear_classes');
 			classes.forEach(function(entry) {
-				socket.emit('addClass', entry);
+				socket.emit('add_class', entry);
 			});
 		}
 	});	
@@ -85,13 +99,13 @@ site.on('connection', function(socket) {
 			console.log(err);
 		} else {
 			names.forEach(function(model) {
-				socket.emit('addModel', model);
+				socket.emit('add_model', model);
 			});
 		}
 	});
 	
 	//Check if dataclass exists in database
-	socket.on('checkExists', function(entry, callback) {
+	socket.on('check_exists', function(entry, callback) {
 		var query = Session.find({dataclass: entry});
 		query.select('data');
 		query.exec(function(err, data) {
@@ -138,12 +152,12 @@ site.on('connection', function(socket) {
 	});
 	
 	//On train, gather training data from database and pass to svm
-	socket.on('svm_train', function(classes) {
+	socket.on('train', function(classes) {
 		var datagroups = [];
 		var processed = 0;
-		socket.emit('showStatus', {statusText: "Training...", bgcolor: "#f1c40f", timeout: Number.MAX_VALUE});
+		socket.emit('show_status', {statusText: "Training...", bgcolor: "#f1c40f", timeout: Number.MAX_VALUE});
 		if(classes.length < 2 || classes.length > 5) {
-			socket.emit('showStatus', {statusText: "Select two to five classes", bgcolor: "#e74c3c", timeout: 3000});
+			socket.emit('show_status', {statusText: "Select two to five classes", bgcolor: "#e74c3c", timeout: 3000});
 		} else {
 			classes.forEach(function(entry) {
 				var query = Session.find({dataclass: entry});
@@ -158,7 +172,7 @@ site.on('connection', function(socket) {
 							datagroups.push([entry, data]);
 							if(++processed == classes.length) {
 								svm.emit('train', datagroups);
-								socket.emit('showStatus', {statusText: "Training complete", bgcolor: "#2ecc71", timeout: 3000});
+								socket.emit('show_status', {statusText: "Training complete", bgcolor: "#2ecc71", timeout: 3000});
 							}
 						}
 					}
@@ -169,15 +183,15 @@ site.on('connection', function(socket) {
 	
 	//Predict data communication with database
 	var predict = null;
-	socket.on('svm_predict_start', function() {
+	socket.on('predict_start', function() {
 		predict = new Predict({data: []})
 	});	
-	socket.on('predictResult', function(data) {
+	socket.on('predict_result', function(data) {
 		predict.data.push({
 			dataclass: data
 		});
 	});
-	socket.on('svm_predict_stop', function() {
+	socket.on('predict_stop', function() {
 		predict.save(function(err, predictObj) {
 			if(err)
 				console.log(err);
@@ -185,7 +199,7 @@ site.on('connection', function(socket) {
 	});
 	
 	//Forward myo data from site to svm
-	socket.on('svm_predict', function(data) {
+	socket.on('predict', function(data) {
 		svm.emit('predict', data); //Data contains .svm_model and .myodata
 	});
 	
@@ -237,11 +251,19 @@ svm.on('connection', function(socket) {
 			}
 		});
 		site.emit('train_status', 'Training complete');
-		site.emit('addModel', filename);
+		site.emit('add_model', filename);
 	});
 	
 	//Forward predict data from svm to site
 	socket.on('predict_data', function(data) {
 		site.emit('predict_data', data);
+	});
+});
+
+//On hmm connection
+hmm.on('connection', function(socket) {
+	console.log('HMM connected');
+	socket.on('disconnect', function() {
+		console.log('HMM disconnected');
 	});
 });

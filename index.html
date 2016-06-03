@@ -67,10 +67,10 @@
 			</div>
 			<div class="row">
 				<div class="col-sm-6">
-					<canvas id="gyroChart" width="400" height="400"></canvas>
+					<canvas id="gyroChart" width="300" height="300"></canvas>
 				</div>
 				<div class="col-sm-6">
-					<canvas id="accelChart" width="400" height="400"></canvas>
+					<canvas id="accelChart" width="300" height="300"></canvas>
 				</div>
 			</div>
 			<div class="row">
@@ -137,7 +137,7 @@
 					<select multiple="multiple" class="form-control" id="tdc">
 					</select>
 				</div>
-				<button type="button" class="btn btn-default" id="svm_train_button">Start</button>
+				<button type="button" class="btn btn-default" id="train_button">Start</button>
 				</div>
 			</form>
 			<div id="train_status">
@@ -157,15 +157,15 @@
 					</select>
 				</div>
 				<div class="btn-group">
-					<button type="button" class="btn btn-primary" id="svm_predict_start">Start</button>
+					<button type="button" class="btn btn-primary" id="predict_start">Start</button>
 				</div>
 				<div class="btn-group">
-					<button type="button" class="btn btn-primary" id="svm_predict_stop">Stop</button>
+					<button type="button" class="btn btn-primary" id="predict_stop">Stop</button>
 				</div>
 			</form>
 			<div class="row" style="margin-top: 70px">
 				<div class="col-sm-4 col-sm-offset-4">
-					<canvas id="predictChart" class="collapse" style="pointer-events: none" width="400" height="400"></canvas>
+					<canvas id="predictChart" class="collapse" style="pointer-events: none" width="300" height="300"></canvas>
 				</div>
 			</div>
 		</div>

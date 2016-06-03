@@ -127,16 +127,14 @@ var accelChart = new Chart(accelctx, {
 var predictChart = new Chart(predictctx, {
 	type: 'doughnut',
 	data: predictdata,
-	options: {
-		
-	}
+	options: {}
 });
 
 //Initialization
 $('#recordButton').prop('disabled', true);
 $('#stopButton').prop('disabled', true);
-$('#svm_predict_start').prop('disabled', true);
-$('#svm_predict_stop').prop('disabled', true);
+$('#predict_start').prop('disabled', true);
+$('#predict_stop').prop('disabled', true);
 showStatus("Waiting for myo to be connected...", "#f1c40f", Number.MAX_VALUE);
 
 //Myo connection
@@ -146,7 +144,7 @@ socket.on('myoconnected', function() {
 		if(!recording && !predicting) {
 			showStatus("Myo connected", "#2ecc71", 3000);
 			$('#recordButton').prop('disabled', false);
-			$('#svm_predict_start').prop('disabled', false);
+			$('#predict_start').prop('disabled', false);
 		}
 	}
 });
@@ -178,7 +176,7 @@ socket.on('data', function(data) {
 	
 	//If predicting, emit prediction data
 	if(predicting)
-		socket.emit('svm_predict', {svm_model: model, myodata: data.slice(1,7)});
+		socket.emit('predict', {svm_model: model, myodata: data.slice(1,7)});
 });
 
 //Recording input
@@ -191,7 +189,7 @@ $('#recordModalConfirm').on('click', function(e) {
 	selDataclass = $('#cdc').val();
 	
 	//Check if class already exists
-	socket.emit('checkExists', selDataclass, function(err, msg) {
+	socket.emit('check_exists', selDataclass, function(err, msg) {
 		if(err) {
 			console.log(err);
 		} else {
@@ -221,32 +219,32 @@ $('#overwriteOverwrite').on('click', function() {
 });
 
 //SVM training input
-$('#svm_train_button').on('click', function(e) {
+$('#train_button').on('click', function(e) {
 	e.preventDefault();
 	
 	var values = $('#tdc').val() || [];
-	socket.emit('svm_train', values);
+	socket.emit('train', values);
 });
 
 //SVM predict input
-$('#svm_predict_start').on('click', function(e) {
+$('#predict_start').on('click', function(e) {
 	e.preventDefault();
 	
 	$('#predictChart').collapse('show');
-	socket.emit('svm_predict_start');
+	socket.emit('predict_start');
 	model = $('#pdc').val();	
-	$('#svm_predict_start').prop('disabled', true);
-	$('#svm_predict_stop').prop('disabled', false);
+	$('#predict_start').prop('disabled', true);
+	$('#predict_stop').prop('disabled', false);
 	setTimeout(function() {
 		showStatus("Predicting...", "#f1c40f", Number.MAX_VALUE);
 		predicting = true;
 	}, 500);
 });
-$('#svm_predict_stop').on('click', function(e) {
+$('#predict_stop').on('click', function(e) {
 	$('#predictChart').collapse('hide');
-	socket.emit('svm_predict_stop');
-	$('#svm_predict_start').prop('disabled', false);
-	$('#svm_predict_stop').prop('disabled', true);
+	socket.emit('predict_stop');
+	$('#predict_start').prop('disabled', false);
+	$('#predict_stop').prop('disabled', true);
 	predicting = false;
 	predict_i = -1;
 	predictDict = [];
@@ -255,7 +253,7 @@ $('#svm_predict_stop').on('click', function(e) {
 	predictdata.datasets[0].backgroundColor = [];
 	predictChart.data = predictdata;
 	predictChart.update();
-	showStatus("Predicting stopped", "#2ecc71", 3000);
+	statusTimer = 0;
 });
 
 //Update predict graph
@@ -285,7 +283,7 @@ socket.on('predict_data', function(data) {
 		}
 		
 		//Give result to server for database
-		socket.emit('predictResult', data);
+		socket.emit('predict_result', data);
 		
 		//Update graph
 		predictChart.data = predictdata;
@@ -294,22 +292,22 @@ socket.on('predict_data', function(data) {
 });
 
 //Update dynamic fields
-socket.on('clearClasses', function() {
+socket.on('clear_classes', function() {
 	$('#tdc').empty();
 });
-socket.on('addClass', function(entry) {
+socket.on('add_class', function(entry) {
 	addClass(entry);
 });
 function addClass(entry) {
 	$('#tdc').append("<option>" + entry + "</option>");
 	$('#tdc').attr("size", $("#tdc option").length);
 }
-socket.on('addModel', function(model) {
+socket.on('add_model', function(model) {
 	$('#pdc').append("<option>" + model + "</option>");
 });
 
 //Show status
-socket.on('showStatus', function(msg) {
+socket.on('show_status', function(msg) {
 	showStatus(msg.statusText, msg.bgcolor, msg.timeout);
 });
 function showStatus(statusText, bgcolor, timeout) {
