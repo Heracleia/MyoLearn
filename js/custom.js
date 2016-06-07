@@ -10,6 +10,7 @@ var socket = io('/site_namespace'),
 	statusTimer = Number.MAX_VALUE,
 	svmPredictDict = [],
 	hmmPredictDict = [],
+	nnPredictDict = [],
 	svm_predict_i = -1,
 	hmm_predict_i = -1,
 	nn_predict_i = -1,
@@ -302,6 +303,13 @@ $('#predict_stop').on('click', function(e) {
 	hmmpredictdata.datasets[0].backgroundColor = [];
 	hmmPredictChart.data = hmmpredictdata;
 	hmmPredictChart.update();
+	nn_predict_i = -1;
+	nnPredictDict = [];
+	nnpredictdata.labels = [];
+	nnpredictdata.datasets[0].data = [];
+	nnpredictdata.datasets[0].backgroundColor = [];
+	nnPredictChart.data = nnpredictdata;
+	nnPredictChart.update();
 	statusTimer = 0;
 });
 
@@ -370,6 +378,39 @@ socket.on('hmm_predict_data', function(data) {
 		//Update graphs
 		hmmPredictChart.data = hmmpredictdata;
 		hmmPredictChart.update();
+	}	
+});
+socket.on('nn_predict_data', function(data) {
+	if(predicting) {
+		//If not in graph, initialize option
+		if(nnPredictDict[data] == null) {
+			nnPredictDict[data] = ++nn_predict_i;
+			nnpredictdata.labels[nnPredictDict[data]] = data;
+			nnpredictdata.datasets[0].data[nnPredictDict[data]] = 0;
+			nnpredictdata.datasets[0].backgroundColor[nnPredictDict[data]] = colors[nnPredictDict[data]];
+		}
+		
+		//Increase value for option
+		nnpredictdata.datasets[0].data[nnPredictDict[data]]++;
+		
+		//Adjust based on sum
+		var sum = 0;
+		$.each(nnpredictdata.datasets[0].data, function(index, value) {
+			sum += value;
+		});
+		if(sum > 10) {
+			$.each(nnpredictdata.datasets[0].data, function(index, value) {
+				if(value > 0)
+					nnpredictdata.datasets[0].data[index]--;
+			});
+		}
+		
+		//Give result to server for database
+		socket.emit('nn_predict_result', data);
+		
+		//Update graphs
+		nnPredictChart.data = nnpredictdata;
+		nnPredictChart.update();
 	}	
 });
 

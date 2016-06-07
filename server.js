@@ -10,8 +10,9 @@ var myo = io.of('/myo_namespace');
 var site = io.of('/site_namespace');
 var svm = io.of('/svm_namespace');
 var hmm = io.of('/hmm_namespace');
+var nn = io.of('/nn_namespace');
 var myodata = [0, 0, 0, 0, 0, 0, 0];
-var trained = [false, false, true];
+var trained = [false, false, false];
 
 //Define static directories
 app.use('/js', express.static(__dirname + '/node_modules/chart.js/dist/'));
@@ -27,11 +28,11 @@ pyshell.run('svm.py', function(err) {
 		console.log(err);
 	}
 });
-/*pyshell.run('hmm.py', function(err) {
+pyshell.run('hmm.py', function(err) {
 	if(err) {
 		console.log(err);
 	}
-});*/
+});
 
 //Define schemas
 var myoDataSchema = new Schema({
@@ -176,6 +177,7 @@ site.on('connection', function(socket) {
 							if(++processed == classes.length) {
 								svm.emit('train', datagroups);
 								hmm.emit('train', datagroups);
+								nn.emit('train', datagroups);
 							}
 						}
 					}
@@ -228,6 +230,7 @@ site.on('connection', function(socket) {
 	socket.on('predict', function(data) {
 		svm.emit('predict', data);
 		hmm.emit('predict', data);
+		nn.emit('predict', data);
 	});
 	
 	//Check myo connection every 5 seconds
@@ -300,6 +303,26 @@ hmm.on('connection', function(socket) {
 	});
 });
 
+//On nn connection
+nn.on('connection', function(socket) {
+	console.log('NN connected');
+	socket.on('disconnect', function() {
+		console.log('NN disconnected');
+	});
+	
+	socket.on('trained', function(filename) {
+		trained[2] = true;
+		if(trained[0] == true && trained[1] == true && trained[2] == true) {
+			notifyTrained(filename);
+		}
+	});
+	
+	//Forward predict data from hmm to site
+	socket.on('predict_data', function(data) {
+		site.emit('nn_predict_data', data);
+	});
+});
+
 //Notify site when all models are trained
 function notifyTrained(filename) {
 	var model = new Model({name: filename});
@@ -314,4 +337,5 @@ function notifyTrained(filename) {
 	site.emit('add_model', filename);
 	trained[0] = false;
 	trained[1] = false;
+	trained[2] = false;
 }

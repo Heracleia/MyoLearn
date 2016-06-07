@@ -1,10 +1,11 @@
+#from sklearn.neural_network import MLPClassifier
 from sklearn import svm
 from sklearn.externals import joblib
 from socketIO_client import SocketIO, BaseNamespace
 import numpy as np
 import time
 
-class SVMNamespace(BaseNamespace):
+class NNNamespace(BaseNamespace):
 	def on_connect(self):
 		print 'Connected to http://localhost:3000'
 		
@@ -43,17 +44,17 @@ class SVMNamespace(BaseNamespace):
 		
 		#Save to file
 		filename = filename.replace(' ', '')
-		joblib.dump(clf, 'dump/SVM_' + filename + '.pkl')
+		joblib.dump(clf, 'dump/NN_' + filename + '.pkl')
 		
-		svm_sock.emit('trained', filename)
+		nn_sock.emit('trained', filename)
 		
 	def on_predict(self, data):
-		clf = joblib.load('dump/SVM_' + str(data['model']) + '.pkl')
+		clf = joblib.load('dump/NN_' + str(data['model']) + '.pkl')
 		X = np.asarray(data['myodata']).reshape(1, -1)
 		result = clf.predict(X)[0]
-		svm_sock.emit('predict_data', result)
+		nn_sock.emit('predict_data', result)
 			
 		
 socketIO = SocketIO('localhost', 3000)
-svm_sock = socketIO.define(SVMNamespace, '/svm_namespace')
+nn_sock = socketIO.define(NNNamespace, '/nn_namespace')
 socketIO.wait()
