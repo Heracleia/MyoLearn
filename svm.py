@@ -44,12 +44,12 @@ class SVMNamespace(BaseNamespace):
 		
 		#Save to file
 		filename = filename.replace(' ', '')
-		joblib.dump(clf, 'dump/' + filename + '.pkl')
+		joblib.dump(clf, 'dump/SVM_' + filename + '.pkl')
 		
 		svm_sock.emit('trained', filename)
 		
 	def on_predict(self, data):
-		clf = joblib.load('dump/' + str(data['svm_model']) + '.pkl')
+		clf = joblib.load('dump/SVM_' + str(data['model']) + '.pkl')
 		X = np.asarray(data['myodata']).reshape(1, -1)
 		result = clf.predict(X)[0]
 		svm_sock.emit('predict_data', result)

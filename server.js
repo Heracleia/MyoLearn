@@ -11,6 +11,7 @@ var site = io.of('/site_namespace');
 var svm = io.of('/svm_namespace');
 var hmm = io.of('/hmm_namespace');
 var myodata = [0, 0, 0, 0, 0, 0, 0];
+var trained = [false, false, true];
 
 //Define static directories
 app.use('/js', express.static(__dirname + '/node_modules/chart.js/dist/'));
@@ -26,11 +27,11 @@ pyshell.run('svm.py', function(err) {
 		console.log(err);
 	}
 });
-pyshell.run('hmm.py', function(err) {
+/*pyshell.run('hmm.py', function(err) {
 	if(err) {
 		console.log(err);
 	}
-});
+});*/
 
 //Define schemas
 var myoDataSchema = new Schema({
@@ -55,6 +56,7 @@ var predictDataSchema = new Schema({
 });
 var predictSchema = new Schema({
 	date: {type: Date, default: Date.now},
+	model: String,
 	data: [predictDataSchema]
 });
 
@@ -98,6 +100,7 @@ site.on('connection', function(socket) {
 		if(err) {
 			console.log(err);
 		} else {
+			socket.emit('clear_models');
 			names.forEach(function(model) {
 				socket.emit('add_model', model);
 			});
@@ -151,7 +154,7 @@ site.on('connection', function(socket) {
 		});
 	});
 	
-	//On train, gather training data from database and pass to svm
+	//On train, gather training data from database and pass to training scripts
 	socket.on('train', function(classes) {
 		var datagroups = [];
 		var processed = 0;
@@ -172,7 +175,7 @@ site.on('connection', function(socket) {
 							datagroups.push([entry, data]);
 							if(++processed == classes.length) {
 								svm.emit('train', datagroups);
-								socket.emit('show_status', {statusText: "Training complete", bgcolor: "#2ecc71", timeout: 3000});
+								hmm.emit('train', datagroups);
 							}
 						}
 					}
@@ -182,25 +185,49 @@ site.on('connection', function(socket) {
 	});
 	
 	//Predict data communication with database
-	var predict = null;
+	var svm_predict = null,
+		hmm_predict = null,
+		nn_predict = null;
 	socket.on('predict_start', function() {
-		predict = new Predict({data: []})
+		svm_predict = new Predict({model: 'svm', data: []})
+		hmm_predict = new Predict({model: 'hmm', data: []});
+		nn_predict = new Predict({model: 'nn', data: []});
 	});	
-	socket.on('predict_result', function(data) {
-		predict.data.push({
+	socket.on('svm_predict_result', function(data) {
+		svm_predict.data.push({
+			dataclass: data
+		});
+	});
+	socket.on('hmm_predict_result', function(data) {
+		hmm_predict.data.push({
+			dataclass: data
+		});
+	});
+	socket.on('nn_predict_result', function(data) {
+		nn_predict.data.push({
 			dataclass: data
 		});
 	});
 	socket.on('predict_stop', function() {
-		predict.save(function(err, predictObj) {
+		svm_predict.save(function(err, predictObj) {
+			if(err)
+				console.log(err);
+		});
+		hmm_predict.save(function(err, predictObj) {
+			if(err)
+				console.log(err);
+		});
+		nn_predict.save(function(err, predictObj) {
 			if(err)
 				console.log(err);
 		});
 	});
 	
-	//Forward myo data from site to svm
+	//Forward myo data from site to learning scripts
+	//Data contains .model and .myodata
 	socket.on('predict', function(data) {
-		svm.emit('predict', data); //Data contains .svm_model and .myodata
+		svm.emit('predict', data);
+		hmm.emit('predict', data);
 	});
 	
 	//Check myo connection every 5 seconds
@@ -240,23 +267,16 @@ svm.on('connection', function(socket) {
 		console.log('SVM disconnected');
 	});
 	
-	//Update site when training information is received
 	socket.on('trained', function(filename) {
-		var model = new Model({name: filename});
-		model.save(function(err, modelObj) {
-			if(err) {
-				console.log(err);
-			} else {
-				console.log('Model ' + modelObj + ' saved');
-			}
-		});
-		site.emit('train_status', 'Training complete');
-		site.emit('add_model', filename);
+		trained[0] = true;
+		if(trained[0] == true && trained[1] == true && trained[2] == true) {
+			notifyTrained(filename);
+		}
 	});
 	
 	//Forward predict data from svm to site
 	socket.on('predict_data', function(data) {
-		site.emit('predict_data', data);
+		site.emit('svm_predict_data', data);
 	});
 });
 
@@ -266,4 +286,32 @@ hmm.on('connection', function(socket) {
 	socket.on('disconnect', function() {
 		console.log('HMM disconnected');
 	});
+	
+	socket.on('trained', function(filename) {
+		trained[1] = true;
+		if(trained[0] == true && trained[1] == true && trained[2] == true) {
+			notifyTrained(filename);
+		}
+	});
+	
+	//Forward predict data from hmm to site
+	socket.on('predict_data', function(data) {
+		site.emit('hmm_predict_data', data);
+	});
 });
+
+//Notify site when all models are trained
+function notifyTrained(filename) {
+	var model = new Model({name: filename});
+	model.save(function(err, modelObj) {
+		if(err) {
+			console.log(err);
+		} else {
+			console.log('Model ' + modelObj + ' saved');
+		}
+	});
+	site.emit('show_status', {statusText: "Training complete", bgcolor: "#2ecc71", timeout: 3000});
+	site.emit('add_model', filename);
+	trained[0] = false;
+	trained[1] = false;
+}

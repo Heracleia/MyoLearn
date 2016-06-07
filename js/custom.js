@@ -8,15 +8,20 @@ var socket = io('/site_namespace'),
 	clock = 0,
 	offset = Date.now(),
 	statusTimer = Number.MAX_VALUE,
-	predictDict = [],
-	predict_i = -1,
+	svmPredictDict = [],
+	hmmPredictDict = [],
+	svm_predict_i = -1,
+	hmm_predict_i = -1,
+	nn_predict_i = -1,
 	selselDataclass = '',
 	colors = ["#e67e22", "#e74c3c", "#3498db", "#9b59b6", "#1abc9c"];
 
 //Define charts
 var gyroctx = $('#gyroChart'),
 	accelctx = $('#accelChart'),
-	predictctx = $('#predictChart'),
+	svmpredictctx = $('#svmPredictChart'),
+	hmmpredictctx = $('#hmmPredictChart'),
+	nnpredictctx = $('#nnPredictChart'),
 	gyrodata = {
 		labels: Array.apply(null, Array(20)).map(String.prototype.valueOf, ""),
 		datasets: [
@@ -63,7 +68,21 @@ var gyroctx = $('#gyroChart'),
 			}
 		]
 	},
-	predictdata = {
+	svmpredictdata = {
+		labels: [],
+		datasets: [{
+			data: [],
+			backgroundColor: []
+		}]
+	},
+	hmmpredictdata = {
+		labels: [],
+		datasets: [{
+			data: [],
+			backgroundColor: []
+		}]
+	},
+	nnpredictdata = {
 		labels: [],
 		datasets: [{
 			data: [],
@@ -123,11 +142,36 @@ var accelChart = new Chart(accelctx, {
 	}
 });
 
-//Create predict chart
-var predictChart = new Chart(predictctx, {
+//Create predict charts
+var svmPredictChart = new Chart(svmpredictctx, {
 	type: 'doughnut',
-	data: predictdata,
-	options: {}
+	data: svmpredictdata,
+	options: {
+		title: {
+			display: true,
+			text: 'Support Vector Machine'
+		}
+	}
+}),
+	hmmPredictChart = new Chart(hmmpredictctx, {
+	type: 'doughnut',
+	data: hmmpredictdata,
+	options: {
+		title: {
+			display: true,
+			text: 'Hidden Markov Model'
+		}
+	}
+}),
+	nnPredictChart = new Chart(nnpredictctx, {
+	type: 'doughnut',
+	data: nnpredictdata,
+	options: {
+		title: {
+			display: true,
+			text: 'Neural Network'
+		}
+	}
 });
 
 //Initialization
@@ -176,7 +220,7 @@ socket.on('data', function(data) {
 	
 	//If predicting, emit prediction data
 	if(predicting)
-		socket.emit('predict', {svm_model: model, myodata: data.slice(1,7)});
+		socket.emit('predict', {model: model, myodata: data.slice(1,7)});
 });
 
 //Recording input
@@ -218,7 +262,7 @@ $('#overwriteOverwrite').on('click', function() {
 	startRecording();
 });
 
-//SVM training input
+//Training input
 $('#train_button').on('click', function(e) {
 	e.preventDefault();
 	
@@ -226,13 +270,12 @@ $('#train_button').on('click', function(e) {
 	socket.emit('train', values);
 });
 
-//SVM predict input
+//Predict input
 $('#predict_start').on('click', function(e) {
 	e.preventDefault();
 	
-	$('#predictChart').collapse('show');
 	socket.emit('predict_start');
-	model = $('#pdc').val();	
+	model = $('#pdc').val();
 	$('#predict_start').prop('disabled', true);
 	$('#predict_stop').prop('disabled', false);
 	setTimeout(function() {
@@ -241,59 +284,101 @@ $('#predict_start').on('click', function(e) {
 	}, 500);
 });
 $('#predict_stop').on('click', function(e) {
-	$('#predictChart').collapse('hide');
 	socket.emit('predict_stop');
 	$('#predict_start').prop('disabled', false);
 	$('#predict_stop').prop('disabled', true);
 	predicting = false;
-	predict_i = -1;
-	predictDict = [];
-	predictdata.labels = [];
-	predictdata.datasets[0].data = [];
-	predictdata.datasets[0].backgroundColor = [];
-	predictChart.data = predictdata;
-	predictChart.update();
+	svm_predict_i = -1;
+	svmPredictDict = [];
+	svmpredictdata.labels = [];
+	svmpredictdata.datasets[0].data = [];
+	svmpredictdata.datasets[0].backgroundColor = [];
+	svmPredictChart.data = svmpredictdata;
+	svmPredictChart.update();
+	hmm_predict_i = -1;
+	hmmPredictDict = [];
+	hmmpredictdata.labels = [];
+	hmmpredictdata.datasets[0].data = [];
+	hmmpredictdata.datasets[0].backgroundColor = [];
+	hmmPredictChart.data = hmmpredictdata;
+	hmmPredictChart.update();
 	statusTimer = 0;
 });
 
-//Update predict graph
-socket.on('predict_data', function(data) {
+//Update predict graphs
+socket.on('svm_predict_data', function(data) {
 	if(predicting) {
 		//If not in graph, initialize option
-		if(predictDict[data] == null) {
-			predictDict[data] = ++predict_i;
-			predictdata.labels[predictDict[data]] = data;
-			predictdata.datasets[0].data[predictDict[data]] = 0;
-			predictdata.datasets[0].backgroundColor[predictDict[data]] = colors[predictDict[data]];
+		if(svmPredictDict[data] == null) {
+			svmPredictDict[data] = ++svm_predict_i;
+			svmpredictdata.labels[svmPredictDict[data]] = data;
+			svmpredictdata.datasets[0].data[svmPredictDict[data]] = 0;
+			svmpredictdata.datasets[0].backgroundColor[svmPredictDict[data]] = colors[svmPredictDict[data]];
 		}
 		
 		//Increase value for option
-		predictdata.datasets[0].data[predictDict[data]]++;
+		svmpredictdata.datasets[0].data[svmPredictDict[data]]++;
 		
 		//Adjust based on sum
 		var sum = 0;
-		$.each(predictdata.datasets[0].data, function(index, value) {
+		$.each(svmpredictdata.datasets[0].data, function(index, value) {
 			sum += value;
 		});
 		if(sum > 10) {
-			$.each(predictdata.datasets[0].data, function(index, value) {
+			$.each(svmpredictdata.datasets[0].data, function(index, value) {
 				if(value > 0)
-					predictdata.datasets[0].data[index]--;
+					svmpredictdata.datasets[0].data[index]--;
 			});
 		}
 		
 		//Give result to server for database
-		socket.emit('predict_result', data);
+		socket.emit('svm_predict_result', data);
 		
-		//Update graph
-		predictChart.data = predictdata;
-		predictChart.update();
+		//Update graphs
+		svmPredictChart.data = svmpredictdata;
+		svmPredictChart.update();
+	}	
+});
+socket.on('hmm_predict_data', function(data) {
+	if(predicting) {
+		//If not in graph, initialize option
+		if(hmmPredictDict[data] == null) {
+			hmmPredictDict[data] = ++hmm_predict_i;
+			hmmpredictdata.labels[hmmPredictDict[data]] = data;
+			hmmpredictdata.datasets[0].data[hmmPredictDict[data]] = 0;
+			hmmpredictdata.datasets[0].backgroundColor[hmmPredictDict[data]] = colors[hmmPredictDict[data]];
+		}
+		
+		//Increase value for option
+		hmmpredictdata.datasets[0].data[hmmPredictDict[data]]++;
+		
+		//Adjust based on sum
+		var sum = 0;
+		$.each(hmmpredictdata.datasets[0].data, function(index, value) {
+			sum += value;
+		});
+		if(sum > 10) {
+			$.each(hmmpredictdata.datasets[0].data, function(index, value) {
+				if(value > 0)
+					hmmpredictdata.datasets[0].data[index]--;
+			});
+		}
+		
+		//Give result to server for database
+		socket.emit('hmm_predict_result', data);
+		
+		//Update graphs
+		hmmPredictChart.data = hmmpredictdata;
+		hmmPredictChart.update();
 	}	
 });
 
 //Update dynamic fields
 socket.on('clear_classes', function() {
 	$('#tdc').empty();
+});
+socket.on('clear_models', function() {
+	$('#pdc').empty();
 });
 socket.on('add_class', function(entry) {
 	addClass(entry);
