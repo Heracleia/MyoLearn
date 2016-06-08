@@ -8,12 +8,8 @@ var socket = io('/site_namespace'),
 	clock = 0,
 	offset = Date.now(),
 	statusTimer = Number.MAX_VALUE,
-	svmPredictDict = [],
-	hmmPredictDict = [],
-	nnPredictDict = [],
-	svm_predict_i = -1,
-	hmm_predict_i = -1,
-	nn_predict_i = -1,
+	predictDict = [],
+	predict_i = -1,
 	selselDataclass = '',
 	colors = ["#e67e22", "#e74c3c", "#3498db", "#9b59b6", "#1abc9c"];
 
@@ -317,15 +313,12 @@ $('#predict_stop').on('click', function(e) {
 socket.on('svm_predict_data', function(data) {
 	if(predicting) {
 		//If not in graph, initialize option
-		if(svmPredictDict[data] == null) {
-			svmPredictDict[data] = ++svm_predict_i;
-			svmpredictdata.labels[svmPredictDict[data]] = data;
-			svmpredictdata.datasets[0].data[svmPredictDict[data]] = 0;
-			svmpredictdata.datasets[0].backgroundColor[svmPredictDict[data]] = colors[svmPredictDict[data]];
+		if(predictDict[data] == null) {
+			addPredictClass(data);
 		}
 		
 		//Increase value for option
-		svmpredictdata.datasets[0].data[svmPredictDict[data]]++;
+		svmpredictdata.datasets[0].data[predictDict[data]]++;
 		
 		//Adjust based on sum
 		var sum = 0;
@@ -350,15 +343,12 @@ socket.on('svm_predict_data', function(data) {
 socket.on('hmm_predict_data', function(data) {
 	if(predicting) {
 		//If not in graph, initialize option
-		if(hmmPredictDict[data] == null) {
-			hmmPredictDict[data] = ++hmm_predict_i;
-			hmmpredictdata.labels[hmmPredictDict[data]] = data;
-			hmmpredictdata.datasets[0].data[hmmPredictDict[data]] = 0;
-			hmmpredictdata.datasets[0].backgroundColor[hmmPredictDict[data]] = colors[hmmPredictDict[data]];
+		if(predictDict[data] == null) {
+			addPredictClass(data);
 		}
 		
 		//Increase value for option
-		hmmpredictdata.datasets[0].data[hmmPredictDict[data]]++;
+		hmmpredictdata.datasets[0].data[predictDict[data]]++;
 		
 		//Adjust based on sum
 		var sum = 0;
@@ -383,15 +373,12 @@ socket.on('hmm_predict_data', function(data) {
 socket.on('nn_predict_data', function(data) {
 	if(predicting) {
 		//If not in graph, initialize option
-		if(nnPredictDict[data] == null) {
-			nnPredictDict[data] = ++nn_predict_i;
-			nnpredictdata.labels[nnPredictDict[data]] = data;
-			nnpredictdata.datasets[0].data[nnPredictDict[data]] = 0;
-			nnpredictdata.datasets[0].backgroundColor[nnPredictDict[data]] = colors[nnPredictDict[data]];
+		if(predictDict[data] == null) {
+			addPredictClass(data);
 		}
 		
 		//Increase value for option
-		nnpredictdata.datasets[0].data[nnPredictDict[data]]++;
+		nnpredictdata.datasets[0].data[predictDict[data]]++;
 		
 		//Adjust based on sum
 		var sum = 0;
@@ -447,7 +434,7 @@ $('#myostatus').on('click', function(e) {
 	statusTimer = 0;
 });
 
-//Start recoding
+//Start recording
 function startRecording() {
 	socket.emit('record', selDataclass);	
 	$('#stopButton').prop('disabled', false);
@@ -468,6 +455,21 @@ function stopRecording() {
 		$('#timer').html('00:00');
 		socket.emit('stop');
 	}
+}
+
+//Add class to predict graphs
+function addPredictClass(data) {
+	predict_i++;
+	predictDict[data] = predict_i;
+	svmpredictdata.labels[predictDict[data]] = data;
+	hmmpredictdata.labels[predictDict[data]] = data;
+	nnpredictdata.labels[predictDict[data]] = data;
+	svmpredictdata.datasets[0].data[predictDict[data]] = 0;
+	hmmpredictdata.datasets[0].data[predictDict[data]] = 0;
+	nnpredictdata.datasets[0].data[predictDict[data]] = 0;
+	svmpredictdata.datasets[0].backgroundColor[predictDict[data]] = colors[predictDict[data]];
+	hmmpredictdata.datasets[0].backgroundColor[predictDict[data]] = colors[predictDict[data]];
+	nnpredictdata.datasets[0].backgroundColor[predictDict[data]] = colors[predictDict[data]];
 }
 
 //Update function

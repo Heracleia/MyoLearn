@@ -1,5 +1,4 @@
-#from sklearn.neural_network import MLPClassifier
-from sklearn import svm
+from sklearn.neural_network import MLPClassifier
 from sklearn.externals import joblib
 from socketIO_client import SocketIO, BaseNamespace
 import numpy as np
@@ -39,8 +38,8 @@ class NNNamespace(BaseNamespace):
 			Y += y
 			filename += str(key)
 			
-		clf = svm.LinearSVC()
-		print clf.fit(X, Y)
+		clf = MLPClassifier(algorithm='l-bfgs').fit(X, Y) 
+		print clf
 		
 		#Save to file
 		filename = filename.replace(' ', '')

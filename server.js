@@ -33,6 +33,11 @@ pyshell.run('hmm.py', function(err) {
 		console.log(err);
 	}
 });
+pyshell.run('nn.py', function(err) {
+	if(err) {
+		console.log(err);
+	}
+});
 
 //Define schemas
 var myoDataSchema = new Schema({

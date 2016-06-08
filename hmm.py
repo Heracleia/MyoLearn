@@ -1,10 +1,10 @@
-#from sklearn import hmm
 from socketIO_client import SocketIO, BaseNamespace
 from sklearn.externals import joblib
 from hmmlearn import hmm
 import numpy as np
 import time
 import os.path
+import pickle
 
 class HMMNamespace(BaseNamespace):
 	def on_connect(self):
@@ -31,20 +31,24 @@ class HMMNamespace(BaseNamespace):
 	
 		#Arrange data for hmm reading
 		model = []
+		labels = []
 		filename = time.strftime('%Y%m%d-%H%M%S')
 		for key in dataDict.keys():
 			model.append(hmm.GaussianHMM(n_components=1).fit(dataDict[key]))
 			filename += str(key)
+			labels.append(key)
 		
 		#Save to file
 		filename = filename.replace(' ', '')
 		for i in range(0, len(model)):
 			joblib.dump(model[i], 'dump/HMM_' + filename + str(i) + '.pkl')
+		pickle.dump(labels, open('dump/' + filename + 'labels.pkl', 'wb'))
 		
 		hmm_sock.emit('trained', filename)
 		
 	def on_predict(self, data):
 		model = []
+		labels = pickle.load(open('dump/' + str(data['model']) + 'labels.pkl', 'rb'))
 		i = 0
 		while os.path.isfile('dump/HMM_' + str(data['model']) + str(i) + '.pkl'):
 			model.append(joblib.load('dump/HMM_' + str(data['model']) + str(i) + '.pkl'))
@@ -53,7 +57,7 @@ class HMMNamespace(BaseNamespace):
 		scores = []
 		for m in model:
 			scores.append(m.score(X))
-		result = scores.index(max(scores))
+		result = labels[scores.index(max(scores))]
 		hmm_sock.emit('predict_data', result)
 		
 socketIO = SocketIO('localhost', 3000)
