@@ -1,0 +1,8 @@
+(lp0
+VWaving
+p1
+aVResting
+p2
+aVScratchingHead
+p3
+a.
